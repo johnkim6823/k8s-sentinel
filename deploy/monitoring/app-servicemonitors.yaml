@@ -1,0 +1,21 @@
+# Scrape app-a's /metrics (prometheus-fastapi-instrumentator), including the
+# app_a_downstream_calls_total counter used by the DownstreamCallFailureRateHigh
+# alert (scenario 6). app-b exposes no metrics endpoint yet.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: app-a
+  namespace: monitoring
+  labels:
+    app: k8s-sentinel
+spec:
+  namespaceSelector:
+    matchNames:
+      - default
+  selector:
+    matchLabels:
+      app: app-a
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

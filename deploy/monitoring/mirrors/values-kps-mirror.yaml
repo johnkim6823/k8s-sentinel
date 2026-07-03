@@ -1,0 +1,51 @@
+# Registry-mirror overlay for kube-prometheus-stack, used by setup-monitoring.sh
+# when USE_REGISTRY_MIRROR=1. For networks that block quay.io / registry.k8s.io /
+# Docker Hub's CDN: docker.io images are pulled through mirror.gcr.io, and
+# quay-only images are replaced with their Docker Hub mirrors (rancher/mirrored-*,
+# hence the slightly older prometheus-operator version).
+prometheusOperator:
+  image:
+    registry: mirror.gcr.io
+    repository: rancher/mirrored-prometheus-operator-prometheus-operator
+    tag: v0.87.1
+  prometheusConfigReloader:
+    image:
+      registry: mirror.gcr.io
+      repository: rancher/mirrored-prometheus-operator-prometheus-config-reloader
+      tag: v0.87.1
+
+prometheus:
+  prometheusSpec:
+    image:
+      registry: mirror.gcr.io
+      repository: prom/prometheus
+      tag: v3.13.0
+
+alertmanager:
+  alertmanagerSpec:
+    image:
+      registry: mirror.gcr.io
+      repository: prom/alertmanager
+      tag: v0.33.0
+
+grafana:
+  image:
+    registry: mirror.gcr.io
+  sidecar:
+    image:
+      registry: mirror.gcr.io
+      repository: kiwigrid/k8s-sidecar
+
+kube-state-metrics:
+  image:
+    registry: mirror.gcr.io
+    repository: rancher/mirrored-kube-state-metrics-kube-state-metrics
+    tag: v2.15.0
+
+prometheus-node-exporter:
+  image:
+    registry: mirror.gcr.io
+    repository: prom/node-exporter
+    tag: v1.11.1
+    # the -distroless tag variant only exists on quay
+    distroless: false

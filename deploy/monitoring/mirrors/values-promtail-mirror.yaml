@@ -1,0 +1,3 @@
+# Registry-mirror overlay for Promtail (see values-kps-mirror.yaml for context)
+image:
+  registry: mirror.gcr.io

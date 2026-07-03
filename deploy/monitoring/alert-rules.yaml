@@ -1,0 +1,197 @@
+# PrometheusRule for the 6 chaos scenarios (docs/PLAN.md, CLAUDE.md).
+# Every rule carries:
+#   labels:      severity, scenario (stable machine-readable scenario id)
+#   annotations: summary, description — these are fed to the LLM diagnosis
+#                engine later, so they spell out what happened, what evidence
+#                to look at, and what the likely causes are.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: k8s-sentinel-scenarios
+  namespace: monitoring
+  labels:
+    app: k8s-sentinel
+spec:
+  groups:
+    - name: k8s-sentinel.scenarios
+      rules:
+        # Scenario 1 — OOMKilled
+        - alert: ContainerOOMKilled
+          expr: |
+            max by (namespace, pod, container) (
+              kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}
+            ) == 1
+            and on (namespace, pod, container)
+            increase(kube_pod_container_status_restarts_total[15m]) > 0
+          for: 1m
+          labels:
+            severity: critical
+            scenario: oomkilled
+          annotations:
+            summary: >-
+              Container {{ $labels.namespace }}/{{ $labels.pod }}/{{ $labels.container }}
+              was OOMKilled and restarted within the last 15 minutes
+            description: >-
+              The kernel killed container {{ $labels.container }} in pod
+              {{ $labels.namespace }}/{{ $labels.pod }} because it exceeded its memory
+              limit (last termination reason: OOMKilled), and the container restarted at
+              least once in the last 15 minutes. Evidence to inspect: the container's
+              memory limit vs its working-set usage trend
+              (container_memory_working_set_bytes), whether usage grew steadily (leak or
+              hoard) or spiked (load burst), and recent app logs before the kill. Typical
+              remediations: raise the memory limit if the workload legitimately needs
+              more, or fix the leak; a bare restart alone usually recurs.
+
+        # Scenario 2 — CrashLoopBackOff
+        - alert: ContainerCrashLoopBackOff
+          expr: |
+            max by (namespace, pod, container) (
+              kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"}
+            ) == 1
+          for: 2m
+          labels:
+            severity: critical
+            scenario: crashloop
+          annotations:
+            summary: >-
+              Container {{ $labels.namespace }}/{{ $labels.pod }}/{{ $labels.container }}
+              is in CrashLoopBackOff
+            description: >-
+              Container {{ $labels.container }} in pod
+              {{ $labels.namespace }}/{{ $labels.pod }} keeps crashing right after start
+              and kubelet is backing off restarts (waiting reason CrashLoopBackOff for
+              over 2 minutes). Evidence to inspect: the container's last logs and exit
+              code, recent Deployment rollouts / config or image changes (rollout
+              history), and events on the pod. Typical causes: bad configuration or
+              environment variables from a recent deploy, a failing dependency during
+              startup, or a broken image. If a recent rollout introduced this, rolling
+              back the Deployment is usually the fastest safe fix.
+
+        # Scenario 3 — ImagePullBackOff
+        - alert: ContainerImagePullBackOff
+          expr: |
+            max by (namespace, pod, container, reason) (
+              kube_pod_container_status_waiting_reason{reason=~"ImagePullBackOff|ErrImagePull|InvalidImageName"}
+            ) == 1
+          for: 2m
+          labels:
+            severity: critical
+            scenario: imagepull
+          annotations:
+            summary: >-
+              Container {{ $labels.namespace }}/{{ $labels.pod }}/{{ $labels.container }}
+              cannot pull its image ({{ $labels.reason }})
+            description: >-
+              Kubelet cannot pull the image for container {{ $labels.container }} in pod
+              {{ $labels.namespace }}/{{ $labels.pod }} (waiting reason
+              {{ $labels.reason }} for over 2 minutes), so the pod cannot start. Evidence
+              to inspect: the exact image reference in the pod spec (typo or nonexistent
+              tag?), pod events for the registry error message (404 not found vs 401/403
+              auth vs network timeout), and whether a recent rollout changed the image
+              tag. If a recent Deployment rollout references a bad tag, rolling back the
+              Deployment restores service; registry auth or network issues need
+              infrastructure attention instead.
+
+        # Scenario 4 — CPU throttling
+        - alert: ContainerCPUThrottlingHigh
+          expr: |
+            sum by (namespace, pod, container) (
+              rate(container_cpu_cfs_throttled_periods_total{container!=""}[5m])
+            )
+            /
+            sum by (namespace, pod, container) (
+              rate(container_cpu_cfs_periods_total{container!=""}[5m])
+            ) > 0.25
+          for: 5m
+          labels:
+            severity: warning
+            scenario: cpu-throttling
+          annotations:
+            summary: >-
+              Container {{ $labels.namespace }}/{{ $labels.pod }}/{{ $labels.container }}
+              is CPU-throttled in {{ $value | humanizePercentage }} of scheduling periods
+            description: >-
+              Container {{ $labels.container }} in pod
+              {{ $labels.namespace }}/{{ $labels.pod }} hit its CPU limit in more than
+              25% of CFS scheduling periods for 5 minutes (current ratio
+              {{ $value | humanizePercentage }}). The workload wants more CPU than its
+              limit allows, which typically shows up as latency, not crashes. Evidence to
+              inspect: the container's CPU limit vs actual usage
+              (container_cpu_usage_seconds_total), request latency metrics, and whether
+              traffic/load increased. Typical remediations: scale the Deployment out
+              (more replicas), or raise the CPU limit if a single replica legitimately
+              needs more.
+
+        # Scenario 5 — Node DiskPressure (alert only, no automated remediation)
+        - alert: NodeDiskPressure
+          expr: |
+            kube_node_status_condition{condition="DiskPressure", status="true"} == 1
+          for: 1m
+          labels:
+            severity: critical
+            scenario: node-disk-pressure
+          annotations:
+            summary: "Node {{ $labels.node }} is under DiskPressure"
+            description: >-
+              Kubelet reports node {{ $labels.node }} has the DiskPressure condition:
+              free disk space or inodes fell below eviction thresholds. Kubelet may start
+              evicting pods and refusing new ones on this node. Evidence to inspect:
+              node filesystem usage (node_filesystem_avail_bytes from node-exporter),
+              which paths are filling up (image garbage, logs, large files written to
+              hostPath/emptyDir), and recent pod activity on the node. This is a
+              node-level infrastructure problem: restarting or rescaling application
+              pods will NOT fix it, and automated pod-level remediation must not be
+              attempted. It needs disk cleanup or node capacity work by an operator.
+
+        - alert: NodeFilesystemAlmostFull
+          expr: |
+            (
+              1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"}
+                  / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}
+            ) > 0.85
+          for: 5m
+          labels:
+            severity: warning
+            scenario: node-disk-pressure
+          annotations:
+            summary: >-
+              Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is
+              {{ $value | humanizePercentage }} full
+            description: >-
+              Filesystem {{ $labels.device }} mounted at {{ $labels.mountpoint }} on
+              node instance {{ $labels.instance }} has been over 85% full for 5 minutes
+              (currently {{ $value | humanizePercentage }}). This is the early-warning
+              companion to NodeDiskPressure: act before kubelet starts evicting pods.
+              Same guidance applies — this is node-level, not fixable by restarting
+              application pods, and excluded from automated remediation.
+
+        # Scenario 6 — downstream dependency failure (alert only; key
+        # misdiagnosis test: restarting app-a will NOT fix app-b being down)
+        - alert: DownstreamCallFailureRateHigh
+          expr: |
+            sum by (downstream) (rate(app_a_downstream_calls_total{outcome="error"}[2m]))
+            /
+            sum by (downstream) (rate(app_a_downstream_calls_total[2m]))
+            > 0.5
+            and
+            sum by (downstream) (rate(app_a_downstream_calls_total[2m])) > 0.01
+          for: 2m
+          labels:
+            severity: critical
+            scenario: downstream-failure
+          annotations:
+            summary: >-
+              app-a's calls to downstream {{ $labels.downstream }} are failing
+              ({{ $value | humanizePercentage }} error rate)
+            description: >-
+              More than half of app-a's calls to its downstream dependency
+              {{ $labels.downstream }} failed over the last 2 minutes (current error
+              ratio {{ $value | humanizePercentage }}, metric
+              app_a_downstream_calls_total). app-a itself is up and serving — the
+              failures are on its outbound calls. Evidence to inspect: the health,
+              pod status, and endpoints of the {{ $labels.downstream }} Service, its
+              recent events/rollouts, and app-a logs for the concrete connection errors
+              (refused / timeout / DNS / 5xx). Important: because the fault lies in the
+              downstream service, restarting or scaling app-a will NOT resolve this
+              alert; remediation must target {{ $labels.downstream }}, and this
+              scenario is excluded from automated remediation.

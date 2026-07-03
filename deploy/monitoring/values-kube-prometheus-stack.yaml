@@ -1,0 +1,104 @@
+# kube-prometheus-stack values — lightweight setup for a local kind cluster.
+# Short retention, single replicas, small resource footprints.
+
+# The 6 chaos-scenario alert rules in alert-rules.yaml are this project's alert
+# surface; the chart's big default rule bundle would only add noise on kind.
+defaultRules:
+  create: false
+
+# These control-plane components bind to 127.0.0.1 on kind nodes, so their
+# scrape targets would just show as down — skip monitoring them.
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+prometheusOperator:
+  # No cert-manager / certgen images needed for a dev cluster
+  admissionWebhooks:
+    enabled: false
+  tls:
+    enabled: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+prometheus:
+  prometheusSpec:
+    replicas: 1
+    retention: 2d
+    # Pick up every PrometheusRule / ServiceMonitor / PodMonitor in the cluster,
+    # not only ones labeled with this Helm release
+    ruleSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+
+alertmanager:
+  alertmanagerSpec:
+    replicas: 1
+    retention: 24h
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+  # Route everything to the (future) Sentinel Agent webhook. Grouping and
+  # repeat intervals are deliberately short so alert delivery is easy to test.
+  config:
+    route:
+      receiver: sentinel-agent
+      group_by: ["alertname", "namespace", "pod", "scenario"]
+      group_wait: 10s
+      group_interval: 30s
+      repeat_interval: 3m
+      # explicitly empty: the chart's default values carry a Watchdog child
+      # route to a "null" receiver, and Helm's map merge would keep it
+      routes: []
+    receivers:
+      - name: sentinel-agent
+        webhook_configs:
+          # Placeholder: the Sentinel Agent (Week 3+) will listen here
+          - url: http://localhost:8000/webhook
+            send_resolved: true
+      - name: "null"
+
+grafana:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      memory: 64Mi

@@ -1,0 +1,7 @@
+# Registry-mirror overlay for Loki (see values-kps-mirror.yaml for context)
+loki:
+  image:
+    registry: mirror.gcr.io
+sidecar:
+  image:
+    registry: mirror.gcr.io
