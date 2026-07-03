@@ -1,0 +1,22 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: k8s-sentinel
+# Force the cgroupfs driver: on nested-Docker hosts (CI runners, sandboxed dev
+# environments) the inner systemd's dbus-managed transient scopes for the
+# "systemd" cgroup driver can fail, while plain cgroupfs works reliably.
+kubeadmConfigPatches:
+  - |
+    kind: KubeletConfiguration
+    cgroupDriver: cgroupfs
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      SystemdCgroup = false
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 30080
+        protocol: TCP
+  - role: worker
+  - role: worker
