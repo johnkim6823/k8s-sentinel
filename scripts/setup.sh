@@ -20,7 +20,11 @@ fi
 
 echo "==> Creating kind cluster (if not present)"
 if ! kind get clusters | grep -qx "$CLUSTER_NAME"; then
-  kind create cluster --config "$ROOT_DIR/deploy/kind-config.yaml" "${KIND_IMAGE_ARGS[@]}"
+  # docker bind mounts need absolute host paths, so resolve __REPO_ROOT__ here
+  RESOLVED_CONFIG=$(mktemp)
+  sed "s|__REPO_ROOT__|$ROOT_DIR|g" "$ROOT_DIR/deploy/kind-config.yaml" > "$RESOLVED_CONFIG"
+  kind create cluster --config "$RESOLVED_CONFIG" "${KIND_IMAGE_ARGS[@]}"
+  rm -f "$RESOLVED_CONFIG"
 else
   echo "cluster '$CLUSTER_NAME' already exists, reusing"
 fi

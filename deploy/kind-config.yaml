@@ -1,9 +1,18 @@
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: k8s-sentinel
-# Force the cgroupfs driver: on nested-Docker hosts (CI runners, sandboxed dev
-# environments) the inner systemd's dbus-managed transient scopes for the
-# "systemd" cgroup driver can fail, while plain cgroupfs works reliably.
+# NOTE: use scripts/setup.sh to create the cluster — it substitutes __REPO_ROOT__
+# below with the repo's absolute path (docker bind mounts require absolute paths).
+#
+# Two workarounds for nested-Docker/sandboxed hosts (CI runners, cloud dev envs):
+# 1. cgroupfs driver: the inner systemd's dbus-managed transient scopes for the
+#    "systemd" cgroup driver can fail, while plain cgroupfs works reliably.
+# 2. kind-runc-wrapper.sh (set as the runc binary): hosts that drop
+#    CAP_SYS_RESOURCE reject negative oom_score_adj writes, so every pod whose
+#    spec asks for oomScoreAdj < 0 (all sandboxes, guaranteed-QoS containers)
+#    dies inside "runc create". The wrapper clamps those values to 0 (and fixes
+#    sysfs mounts for hostNetwork pods) before delegating to the real runc.
+#    On unrestricted hosts both workarounds are inert in practice.
 kubeadmConfigPatches:
   - |
     kind: KubeletConfiguration
@@ -12,11 +21,24 @@ containerdConfigPatches:
   - |-
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
       SystemdCgroup = false
+      BinaryName = "/kind/bin/runc-wrapper.sh"
 nodes:
   - role: control-plane
     extraPortMappings:
       - containerPort: 30080
         hostPort: 30080
         protocol: TCP
+    extraMounts:
+      - hostPath: __REPO_ROOT__/deploy/kind-runc-wrapper.sh
+        containerPath: /kind/bin/runc-wrapper.sh
+        readOnly: true
   - role: worker
+    extraMounts:
+      - hostPath: __REPO_ROOT__/deploy/kind-runc-wrapper.sh
+        containerPath: /kind/bin/runc-wrapper.sh
+        readOnly: true
   - role: worker
+    extraMounts:
+      - hostPath: __REPO_ROOT__/deploy/kind-runc-wrapper.sh
+        containerPath: /kind/bin/runc-wrapper.sh
+        readOnly: true
