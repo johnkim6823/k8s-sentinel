@@ -1,0 +1,25 @@
+{
+  "alertname": "ContainerImagePullBackOff",
+  "state_observed": "firing",
+  "observed_at": "2026-07-15T15:54:14+00:00",
+  "alerts_snapshot": [
+    {
+      "labels": {
+        "alertname": "ContainerImagePullBackOff",
+        "container": "app-b",
+        "namespace": "default",
+        "pod": "app-b-74586f478c-xgqjd",
+        "reason": "ImagePullBackOff",
+        "scenario": "imagepull",
+        "severity": "critical"
+      },
+      "annotations": {
+        "description": "Kubelet cannot pull the image for container app-b in pod default/app-b-74586f478c-xgqjd (waiting reason ImagePullBackOff for over 2 minutes), so the pod cannot start. Evidence to inspect: the exact image reference in the pod spec (typo or nonexistent tag?), pod events for the registry error message (404 not found vs 401/403 auth vs network timeout), and whether a recent rollout changed the image tag. If a recent Deployment rollout references a bad tag, rolling back the Deployment restores service; registry auth or network issues need infrastructure attention instead.",
+        "summary": "Container default/app-b-74586f478c-xgqjd/app-b cannot pull its image (ImagePullBackOff)"
+      },
+      "state": "firing",
+      "activeAt": "2026-07-15T15:52:13.565026603Z",
+      "value": "1e+00"
+    }
+  ]
+}

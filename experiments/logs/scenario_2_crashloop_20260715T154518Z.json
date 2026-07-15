@@ -1,0 +1,14 @@
+{
+  "scenario": "scenario_2_crashloop",
+  "injected_at": "2026-07-15T15:45:18+00:00",
+  "parameters": {
+    "env_name": "DATA_BACKEND",
+    "bad_value": "postgres",
+    "original_value": null
+  },
+  "target": {
+    "namespace": "default",
+    "deployment": "app-b"
+  },
+  "restored_at": "2026-07-15T15:48:27+00:00"
+}

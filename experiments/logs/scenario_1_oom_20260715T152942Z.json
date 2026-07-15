@@ -1,0 +1,14 @@
+{
+  "scenario": "scenario_1_oom",
+  "injected_at": "2026-07-15T15:29:42+00:00",
+  "parameters": {
+    "original_memory_limit": "128Mi",
+    "chaos_memory_limit": "96Mi",
+    "load_mb": 100
+  },
+  "target": {
+    "namespace": "default",
+    "deployment": "app-b"
+  },
+  "restored_at": "2026-07-15T15:41:02+00:00"
+}

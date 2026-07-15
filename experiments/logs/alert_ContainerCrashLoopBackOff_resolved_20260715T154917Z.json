@@ -1,0 +1,6 @@
+{
+  "alertname": "ContainerCrashLoopBackOff",
+  "state_observed": "resolved",
+  "observed_at": "2026-07-15T15:49:17+00:00",
+  "alerts_snapshot": []
+}

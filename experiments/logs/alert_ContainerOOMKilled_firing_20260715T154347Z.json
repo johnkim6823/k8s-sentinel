@@ -1,0 +1,24 @@
+{
+  "alertname": "ContainerOOMKilled",
+  "state_observed": "firing",
+  "observed_at": "2026-07-15T15:43:47+00:00",
+  "alerts_snapshot": [
+    {
+      "labels": {
+        "alertname": "ContainerOOMKilled",
+        "container": "app-b",
+        "namespace": "default",
+        "pod": "app-b-5d54945d68-9fh4r",
+        "scenario": "oomkilled",
+        "severity": "critical"
+      },
+      "annotations": {
+        "description": "The kernel killed container app-b in pod default/app-b-5d54945d68-9fh4r because it exceeded its memory limit (last termination reason: OOMKilled), and the container restarted at least once in the last 15 minutes. Evidence to inspect: the container's memory limit vs its working-set usage trend (container_memory_working_set_bytes), whether usage grew steadily (leak or hoard) or spiked (load burst), and recent app logs before the kill. Typical remediations: raise the memory limit if the workload legitimately needs more, or fix the leak; a bare restart alone usually recurs.",
+        "summary": "Container default/app-b-5d54945d68-9fh4r/app-b was OOMKilled and restarted within the last 15 minutes"
+      },
+      "state": "firing",
+      "activeAt": "2026-07-15T15:42:43.565026603Z",
+      "value": "1e+00"
+    }
+  ]
+}

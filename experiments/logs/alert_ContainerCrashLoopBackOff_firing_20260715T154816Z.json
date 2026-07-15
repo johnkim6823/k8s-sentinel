@@ -1,0 +1,24 @@
+{
+  "alertname": "ContainerCrashLoopBackOff",
+  "state_observed": "firing",
+  "observed_at": "2026-07-15T15:48:16+00:00",
+  "alerts_snapshot": [
+    {
+      "labels": {
+        "alertname": "ContainerCrashLoopBackOff",
+        "container": "app-b",
+        "namespace": "default",
+        "pod": "app-b-5c7b6b6c46-hw7wv",
+        "scenario": "crashloop",
+        "severity": "critical"
+      },
+      "annotations": {
+        "description": "Container app-b in pod default/app-b-5c7b6b6c46-hw7wv keeps crashing right after start and kubelet is backing off restarts (waiting reason CrashLoopBackOff for over 2 minutes). Evidence to inspect: the container's last logs and exit code, recent Deployment rollouts / config or image changes (rollout history), and events on the pod. Typical causes: bad configuration or environment variables from a recent deploy, a failing dependency during startup, or a broken image. If a recent rollout introduced this, rolling back the Deployment is usually the fastest safe fix.",
+        "summary": "Container default/app-b-5c7b6b6c46-hw7wv/app-b is in CrashLoopBackOff"
+      },
+      "state": "firing",
+      "activeAt": "2026-07-15T15:46:13.565026603Z",
+      "value": "1e+00"
+    }
+  ]
+}
