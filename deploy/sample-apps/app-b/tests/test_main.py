@@ -1,7 +1,25 @@
-from app.main import app
+import pytest
+from app.main import app, validate_config
 from fastapi.testclient import TestClient
 
 client = TestClient(app)
+
+
+def test_validate_config_default_ok(monkeypatch):
+    monkeypatch.delenv("DATA_BACKEND", raising=False)
+    assert validate_config() == "memory"
+
+
+def test_validate_config_valid_value(monkeypatch):
+    monkeypatch.setenv("DATA_BACKEND", "memory")
+    assert validate_config() == "memory"
+
+
+def test_validate_config_invalid_value_exits(monkeypatch):
+    monkeypatch.setenv("DATA_BACKEND", "postgres")
+    with pytest.raises(SystemExit) as exc:
+        validate_config()
+    assert exc.value.code == 1
 
 
 def test_health():

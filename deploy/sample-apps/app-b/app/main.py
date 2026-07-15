@@ -1,6 +1,29 @@
+import os
+import sys
 import time
 
 from fastapi import FastAPI, HTTPException
+
+VALID_DATA_BACKENDS = {"memory"}
+
+
+def validate_config() -> str:
+    """Validate required configuration at startup; exit immediately if invalid.
+
+    Chaos scenario 2 (CrashLoopBackOff) deploys a revision with a bad
+    DATA_BACKEND value to simulate a broken config rollout.
+    """
+    backend = os.environ.get("DATA_BACKEND", "memory")
+    if backend not in VALID_DATA_BACKENDS:
+        print(
+            f"FATAL: invalid DATA_BACKEND {backend!r}; supported: {sorted(VALID_DATA_BACKENDS)}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    return backend
+
+
+DATA_BACKEND = validate_config()
 
 app = FastAPI(title="app-b")
 
