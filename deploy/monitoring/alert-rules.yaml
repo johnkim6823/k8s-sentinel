@@ -17,12 +17,21 @@ spec:
       rules:
         # Scenario 1 — OOMKilled
         - alert: ContainerOOMKilled
+          # recency comes from the termination timestamp, not
+          # increase(restarts_total): a pod OOMKilled within its first scrape
+          # interval is born with restartCount=1, so increase() never sees the
+          # step and would miss it
           expr: |
             max by (namespace, pod, container) (
-              kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}
-            ) == 1
+              kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1
+            )
             and on (namespace, pod, container)
-            increase(kube_pod_container_status_restarts_total[15m]) > 0
+            (
+              time()
+              - max by (namespace, pod, container) (
+                  kube_pod_container_status_last_terminated_timestamp
+                )
+            ) < 900
           for: 1m
           labels:
             severity: critical
