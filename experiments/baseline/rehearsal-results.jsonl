@@ -1,0 +1,1 @@
+{"scenario": 1, "run": 1, "injected_at": "2026-07-15T16:29:35+00:00", "recovery_confirmed_at": "2026-07-15T16:32:13+00:00", "mttr_seconds": 158, "notes": "rehearsal: raised memory limit 96Mi->192Mi after confirming OOMKilled in describe/events"}
