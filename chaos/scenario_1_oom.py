@@ -10,6 +10,7 @@ Expected alert: ContainerOOMKilled (scenario=oomkilled).
 
 import json
 import subprocess
+import time
 
 import common
 
@@ -42,22 +43,34 @@ def inject() -> None:
         },
     )
 
-    print(f"allocating {LOAD_MB}MB inside app-b (the connection dying is expected)")
+    # Right after the rollout the Service can still point at the terminating
+    # old pod (with the original limit), so a single allocation attempt can
+    # miss the new pod entirely. Retry until an OOMKill is actually observed.
     script = (
         "import urllib.request; "
         f"print(urllib.request.urlopen('http://app-b:8000/debug/memory?mb={LOAD_MB}',"
         " timeout=30).read().decode())"
     )
-    result = subprocess.run(
-        ["kubectl", "-n", common.NAMESPACE, "exec", "deploy/app-a", "--",
-         "python3", "-c", script],
-        capture_output=True, text=True, check=False,
-    )
-    if result.returncode == 0:
-        print(f"warning: allocation survived ({result.stdout.strip()}) — "
-              "check whether the memory limit is actually enforced")
+    for attempt in range(1, 6):
+        print(f"allocating {LOAD_MB}MB inside app-b (attempt {attempt}; "
+              "the connection dying is expected)")
+        subprocess.run(
+            ["kubectl", "-n", common.NAMESPACE, "exec", "deploy/app-a", "--",
+             "python3", "-c", script],
+            capture_output=True, text=True, check=False,
+        )
+        time.sleep(5)
+        reason = common.kubectl(
+            "get", "pods", "-l", f"app={DEPLOYMENT}",
+            "-o", "jsonpath={.items[*].status.containerStatuses[0]"
+                  ".lastState.terminated.reason}",
+        )
+        if "OOMKilled" in reason:
+            print("OOMKill confirmed on the target pod")
+            break
     else:
-        print("app-b connection dropped — OOM kill in progress")
+        print("warning: no OOMKill observed after 5 attempts — "
+              "check whether the memory limit is actually enforced")
     print(f"injected. log: {log_path}")
 
 
