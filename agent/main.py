@@ -14,6 +14,7 @@ from typing import Any
 
 from fastapi import BackgroundTasks, FastAPI
 
+from agent import diagnosis
 from agent.collector import collect_context
 from agent.models import Alert, AlertmanagerWebhook
 
@@ -29,6 +30,23 @@ CONTEXTS: deque[dict[str, Any]] = deque(maxlen=50)
 def process_alert(alert: Alert) -> None:
     log.info("collecting context for alert=%s pod=%s", alert.name, alert.pod)
     context = collect_context(alert)
+
+    if diagnosis.enabled():
+        try:
+            result = diagnosis.diagnose(context)
+            context["diagnosis"] = result.model_dump()
+            log.info(
+                "diagnosis: action=%s safe=%s confidence=%.2f root_cause=%s",
+                result.recommended_action, result.action_safe_to_automate,
+                result.confidence, result.root_cause,
+            )
+        except diagnosis.DiagnosisError as exc:
+            context["diagnosis"] = {"error": str(exc)}
+            log.error("diagnosis failed: %s", exc)
+    else:
+        context["diagnosis"] = {"skipped": "ANTHROPIC_API_KEY not configured"}
+        log.info("diagnosis skipped: ANTHROPIC_API_KEY not configured")
+
     CONTEXTS.append(context)
     log.info("context collected: %s", json.dumps(context, default=str))
 

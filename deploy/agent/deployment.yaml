@@ -58,6 +58,17 @@ spec:
               value: "http://monitoring-kube-prometheus-prometheus.monitoring:9090"
             - name: LOKI_URL
               value: "http://loki.monitoring:3100"
+            # Diagnosis engine (Week 4). Provide the key via a secret created
+            # out-of-band — never commit it:
+            #   kubectl create secret generic sentinel-agent-secrets \
+            #     --from-literal=anthropic-api-key="$ANTHROPIC_API_KEY"
+            # Without the secret the agent runs with diagnosis skipped.
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sentinel-agent-secrets
+                  key: anthropic-api-key
+                  optional: true
           resources:
             requests:
               cpu: 50m
