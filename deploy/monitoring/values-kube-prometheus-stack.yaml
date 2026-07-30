@@ -73,8 +73,8 @@ alertmanager:
     receivers:
       - name: sentinel-agent
         webhook_configs:
-          # Placeholder: the Sentinel Agent (Week 3+) will listen here
-          - url: http://localhost:8000/webhook
+          # Sentinel Agent webhook (deploy/agent/deployment.yaml)
+          - url: http://sentinel-agent.default:8000/webhook
             send_resolved: true
       - name: "null"
 

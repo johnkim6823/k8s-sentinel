@@ -1,0 +1,6 @@
+{
+  "alertname": "ContainerImagePullBackOff",
+  "state_observed": "resolved",
+  "observed_at": "2026-07-30T08:33:45+00:00",
+  "alerts_snapshot": []
+}

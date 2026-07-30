@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sentinel-agent
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sentinel-agent-read
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "events"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sentinel-agent-read
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sentinel-agent-read
+subjects:
+  - kind: ServiceAccount
+    name: sentinel-agent
+    namespace: default
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentinel-agent
+  namespace: default
+  labels:
+    app: sentinel-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sentinel-agent
+  template:
+    metadata:
+      labels:
+        app: sentinel-agent
+    spec:
+      serviceAccountName: sentinel-agent
+      containers:
+        - name: sentinel-agent
+          image: sentinel-agent:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          env:
+            - name: PROMETHEUS_URL
+              value: "http://monitoring-kube-prometheus-prometheus.monitoring:9090"
+            - name: LOKI_URL
+              value: "http://loki.monitoring:3100"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sentinel-agent
+  namespace: default
+  labels:
+    app: sentinel-agent
+spec:
+  selector:
+    app: sentinel-agent
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000

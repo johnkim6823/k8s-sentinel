@@ -21,7 +21,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        app: [app-a, app-b]
+        include:
+          - name: app-a
+            context: deploy/sample-apps/app-a
+          - name: app-b
+            context: deploy/sample-apps/app-b
+          - name: sentinel-agent
+            context: agent
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -t ${{ matrix.app }}:ci deploy/sample-apps/${{ matrix.app }}
+      - run: docker build -t ${{ matrix.name }}:ci ${{ matrix.context }}
