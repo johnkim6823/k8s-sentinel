@@ -1,0 +1,13 @@
+{
+  "scenario": "scenario_3_imagepull",
+  "injected_at": "2026-07-31T03:16:17+00:00",
+  "parameters": {
+    "original_image": "app-b:dev",
+    "bad_image": "app-b:nonexistent-chaos"
+  },
+  "target": {
+    "namespace": "default",
+    "deployment": "app-b"
+  },
+  "restored_at": "2026-07-31T03:23:29+00:00"
+}

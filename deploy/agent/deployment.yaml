@@ -7,23 +7,28 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: sentinel-agent-read
+  name: sentinel-agent
 rules:
+  # read: context collection
   - apiGroups: [""]
     resources: ["pods", "events"]
     verbs: ["get", "list"]
   - apiGroups: ["apps"]
     resources: ["deployments", "replicasets"]
     verbs: ["get", "list"]
+  # write: whitelisted remediations (restart via patch, scale, rollback)
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/scale"]
+    verbs: ["patch", "update"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: sentinel-agent-read
+  name: sentinel-agent
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: sentinel-agent-read
+  name: sentinel-agent
 subjects:
   - kind: ServiceAccount
     name: sentinel-agent
@@ -47,6 +52,11 @@ spec:
         app: sentinel-agent
     spec:
       serviceAccountName: sentinel-agent
+      volumes:
+        # emptyDir: history survives container restarts but not pod rescheduling.
+        # Swap for a PersistentVolumeClaim to persist across pod recreation.
+        - name: history
+          emptyDir: {}
       containers:
         - name: sentinel-agent
           image: sentinel-agent:dev
@@ -69,6 +79,22 @@ spec:
                   name: sentinel-agent-secrets
                   key: anthropic-api-key
                   optional: true
+            # Slack reporter (Week 5). Same optional secret pattern.
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sentinel-agent-secrets
+                  key: slack-webhook-url
+                  optional: true
+            # Approval gate: default requires manual POST /approve. Set to "1"
+            # to auto-approve safe remediations (demo/experiment only).
+            - name: AUTO_APPROVE
+              value: "0"
+            - name: SENTINEL_DB
+              value: "/data/sentinel.db"
+          volumeMounts:
+            - name: history
+              mountPath: /data
           resources:
             requests:
               cpu: 50m

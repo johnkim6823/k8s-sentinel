@@ -1,46 +1,17 @@
 """Collect pod status, events, and rollout history from the Kubernetes API.
 
-Talks to the API server directly with httpx using the pod's service account
-(no kubernetes client dependency). Outside a cluster, set KUBERNETES_API_URL
-and optionally KUBERNETES_TOKEN for testing.
+Talks to the API server directly via the shared agent.k8s_client (no
+kubernetes-client dependency). Outside a cluster, set KUBERNETES_API_URL and
+optionally KUBERNETES_TOKEN for testing.
 """
 
-import os
-from pathlib import Path
 from typing import Any
 
-import httpx
-
-SA_DIR = Path("/var/run/secrets/kubernetes.io/serviceaccount")
-
-
-def _api_base() -> str:
-    if url := os.environ.get("KUBERNETES_API_URL"):
-        return url
-    host = os.environ.get("KUBERNETES_SERVICE_HOST", "kubernetes.default.svc")
-    port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
-    return f"https://{host}:{port}"
-
-
-def _client() -> httpx.Client:
-    headers = {}
-    token = os.environ.get("KUBERNETES_TOKEN")
-    if not token and (SA_DIR / "token").exists():
-        token = (SA_DIR / "token").read_text().strip()
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    ca = SA_DIR / "ca.crt"
-    verify: bool | str = str(ca) if ca.exists() else False
-    return httpx.Client(
-        base_url=_api_base(), headers=headers, verify=verify, timeout=10.0
-    )
+from agent import k8s_client
 
 
 def _get(path: str, params: dict | None = None) -> dict[str, Any]:
-    with _client() as client:
-        resp = client.get(path, params=params)
-        resp.raise_for_status()
-        return resp.json()
+    return k8s_client.get(path, params=params)
 
 
 def pod_status(namespace: str, pod: str) -> dict[str, Any]:
